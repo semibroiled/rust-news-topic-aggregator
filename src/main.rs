@@ -4,11 +4,22 @@ use std::error::Error;
 
 use csv::Writer;
 use std::fs::File;
-use std::io::Write;
 use tokio;
 
+use dotenv::dotenv;
+use std::env;
+
+fn get_keys(key_name: &str) -> Result<String, Box<dyn Error>> {
+    // Load environment variables from .env
+    dotenv().ok();
+
+    // Get Keys
+    let key: String = env::var(key_name)?;
+
+    Ok(key)
+}
+
 const NEWS_API_URL: &str = "https://newsapi.org/v2/everything";
-const API_KEY: &str = "my key";
 
 #[derive(Deserialize)]
 struct NewsAPIResponse {
@@ -21,27 +32,32 @@ struct Article {
     published_at: String,
 }
 
-async fn search_news(query: &str) -> Result<Vec<Article>, Box<dyn Error>> {
+async fn search_news(query: &str, api_key: &str) -> Result<Vec<Article>, Box<dyn Error>> {
     let client = Client::new(); // New HTTP Client
 
-    let response: NewsAPIResponse = client
+    let response: String = client
         .get(NEWS_API_URL) // GET Request to URL
         .query(&[
             ("q", query),
-            ("apiKey", API_KEY),
-            ("from", "2023-06-01"),
+            ("apiKey", api_key),
             ("sortBy", "relevancy"),
         ]) // Add query params
+        .header("User-Agent", "news-topic-aggregator")
         .send() // Send Request
         .await? // Await for Response
-        .json::<NewsAPIResponse>() // Deserialize JSON Response
+        .text() // Deserialize JSON Response
         .await?; // Await Deserialization
-
-    Ok(response.articles) // Return articles
+        
+    println!("{}", response);
+    let news_api_response: NewsAPIResponse = serde_json::from_str(&response)?;
+    Ok(news_api_response.articles)
 }
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     println!("Hello, world!");
+
+    // Get API Token
+    let api_key: String = get_keys("API_KEY")?;
 
     // Code Block
 
@@ -55,19 +71,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let topic: &str = topic.trim(); // Remove leading and trailing whitespaces
 
     // Search for topic
-    let articles: Vec<Article> = search_news(topic).await?;
+    let articles: Vec<Article> = search_news(topic, &api_key).await?;
 
     // Write CSV File
     let mut wrt: Writer<File> = Writer::from_path(format!("{}_news.csv", topic))?; // Create CSV Writer, write to path named after topic
 
-    wrt.write_record(&["Title", "URL", "Published At"])?; // Write CSV Header
+    wrt.write_record(["Title", "URL", "Published At"])?; // Write CSV Header
 
     for article in &articles {
-        wrt.write_record(&[&article.title,&article.url, &article.published_at])?; // Write each articles details to CSV
+        wrt.write_record([&article.title, &article.url, &article.published_at])?;
+        // Write each articles details to CSV
     }
 
     wrt.flush()?; // Ensure all Data written to file
 
     // Top 15 Articles
-    print
+    println!("Top 15 Article for '{}':", topic);
+
+    for article in articles.iter().take(15) {
+        println!(
+            "{} - {} - {} ",
+            article.title, article.url, article.published_at
+        );
+    }
+
+    Ok(()) // Ensures main fcn returns Ok(())
 }
