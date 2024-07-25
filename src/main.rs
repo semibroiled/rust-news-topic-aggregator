@@ -1,20 +1,56 @@
-use reqwest::Client;
-use serde::Deserialize;
-use std::error::Error;
+// Import local modules
+mod search_news;
+use search_news::{call_api, ApiParams};
 
+use std::{error::Error, fs};
+
+// JSON Handling
+use serde::Deserialize;
+
+// For Logging and Debugging
+use anyhow::{Context, Result};
+use log::info;
+
+// CSV Handling
 use csv::Writer;
+
+// File System Handling
 use std::fs::File;
+use std::path::Path;
+
 use tokio;
 
+// ENV Handling
 use dotenv::dotenv;
 use std::env;
 
-fn get_keys(key_name: &str) -> Result<String, Box<dyn Error>> {
+/// Get ENV Variables
+///
+/// # Arguments
+///
+/// * `key_name` - String slice, name of the key.
+///
+/// # Return
+///
+/// * `Result<String>` - Environment variable value.
+///
+/// # Examples
+///
+/// ```rust
+/// let key_value = get_keys("MY_ENV_KEY").expect("Failed to get key");
+/// println!("The value is: {}", key_value);
+/// ```
+fn get_keys(key_name: &str) -> Result<String> {
     // Load environment variables from .env
+    info!("Loading Envrionment Variables...");
     dotenv().ok();
 
-    // Get Keys
-    let key: String = env::var(key_name)?;
+    // Retrieve Keys
+    info!("Getting {}...", key_name);
+    let key: String = env::var(key_name).context(format!("Failed to get key: {}", key_name))?;
+
+    // Assert key is not empty
+    assert!(!key.is_empty(), "Key is empty");
 
     Ok(key)
 }
@@ -29,35 +65,27 @@ struct NewsAPIResponse {
 struct Article {
     title: String,
     url: String,
+    #[serde(rename = "publishedAt")]
     published_at: String,
 }
 
-async fn search_news(query: &str, api_key: &str) -> Result<Vec<Article>, Box<dyn Error>> {
-    let client = Client::new(); // New HTTP Client
 
-    let response: String = client
-        .get(NEWS_API_URL) // GET Request to URL
-        .query(&[
-            ("q", query),
-            ("apiKey", api_key),
-            ("sortBy", "relevancy"),
-        ]) // Add query params
-        .header("User-Agent", "news-topic-aggregator")
-        .send() // Send Request
-        .await? // Await for Response
-        .text() // Deserialize JSON Response
-        .await?; // Await Deserialization
-        
-    println!("{}", response);
-    let news_api_response: NewsAPIResponse = serde_json::from_str(&response)?;
-    Ok(news_api_response.articles)
-}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    println!("Hello, world!");
+    // Init Logging Backend
+    std::env::set_var("RUST_LOG", "info");
+    env_logger::init();
+    info!("Starting application...");
 
     // Get API Token
-    let api_key: String = get_keys("API_KEY")?;
+    let api_key: String = get_keys("API_KEY").context("Failed to get API Key: {}")?;
+
+    // Set Language
+    let language: &str = "en";
+
+    // Set destination folder
+    let file_destination: &str = "history";
 
     // Code Block
 
@@ -66,20 +94,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut topic: String = String::new(); // String because we dont know length of user input
 
-    std::io::stdin().read_line(&mut topic)?; // Store input in topic
+    std::io::stdin()
+        .read_line(&mut topic)
+        .context("Failed to read input")?; // Store input in topic
 
     let topic: &str = topic.trim(); // Remove leading and trailing whitespaces
 
+    // Define Params for API Call
+    let params = ApiParams {
+        query: topic,
+        url: NEWS_API_URL
+        api_key: &api_key,
+        language,
+        sort_by: "relevancy",
+    };
     // Search for topic
-    let articles: Vec<Article> = search_news(topic, &api_key).await?;
+    let api_response: String = call_api(params)
+        .await
+        .with_context(|| format!("Failed to fetch api response for query: {}", topic))?;
+
+    // Deserialize JSON to Lists
+    let news_api_response: NewsAPIResponse =
+        serde_json::from_str(&api_response).context("Failed to deserialize response")?;
+    let articles: Vec<Article> = news_api_response.articles;
 
     // Write CSV File
-    let mut wrt: Writer<File> = Writer::from_path(format!("{}_news.csv", topic))?; // Create CSV Writer, write to path named after topic
 
-    wrt.write_record(["Title", "URL", "Published At"])?; // Write CSV Header
+    // Define File Path
+    let topic_alnum: String = topic.to_string().chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_lowercase();
+    let file_name: String = format!("{}/{}_{}.csv", file_destination, topic_alnum, language);
+    let file_path: &Path = Path::new(&file_name);
 
-    for article in &articles {
-        wrt.write_record([&article.title, &article.url, &article.published_at])?;
+    // Creat Dirs if they don't exist
+    if let Some(parent) = file_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to creat parent directory: {:?}", parent))?;
+    }
+
+    let file: File = File::create(file_path)
+        .with_context(|| format!("Failed to create file: {:?}", file_path))?;
+    let mut wrt: Writer<File> = Writer::from_writer(file); // Create CSV Writer, write to path named after topic
+
+    wrt.write_record(["#","Title", "URL", "Published At"])?; // Write CSV Header
+
+    for (index, article) in articles.iter().enumerate() {
+        wrt.write_record([index.to_string().as_str(),article.title.as_str(), article.url.as_str(), article.published_at.as_str()])?;
         // Write each articles details to CSV
     }
 
@@ -88,10 +147,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Top 15 Articles
     println!("Top 15 Article for '{}':", topic);
 
-    for article in articles.iter().take(15) {
+    for (index, article) in articles.iter().enumerate().take(15) {
+
         println!(
-            "{} - {} - {} ",
-            article.title, article.url, article.published_at
+            "{}. {} : <{}> - [{}] ",
+            index+1, article.title, article.url, article.published_at
         );
     }
 
