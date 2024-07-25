@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Define Params for API Call
     let params = ApiParams {
         query: topic,
-        url: NEWS_API_URL
+        url: NEWS_API_URL,
         api_key: &api_key,
         language,
         sort_by: "relevancy",
