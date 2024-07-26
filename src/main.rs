@@ -1,7 +1,7 @@
 // Import local modules
 mod process_text;
 mod search_news;
-use process_text::generate_summary;
+// use process_text::generate_summary;
 use search_news::{call_api, ApiParams, Article, NewsAPIResponse};
 
 mod utils;
@@ -146,11 +146,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         match summarize {
             "Y" => {
-                let summary = generate_summary(&articles).await.with_context(|| {
-                    format!("Failed to generate summary for articles: {:?}", &articles)
-                });
-                println!("*--Summary--*");
-                println!("{:?}", summary);
+                // let summary = generate_summary(&articles).await.with_context(|| {
+                //     format!("Failed to generate summary for articles: {:?}", &articles)
+                // });
+                // println!("*--Summary--*");
+                // println!("{:?}", summary);
                 continue;
             }
             "n" => {
