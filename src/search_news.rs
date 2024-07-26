@@ -22,8 +22,7 @@ pub struct ApiParams<'a> {
 pub struct NewsAPIResponse {
     pub articles: Vec<Article>, //List of Articles
 }
-#[derive(Debug)]
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Article {
     pub title: String,
     pub url: String,
