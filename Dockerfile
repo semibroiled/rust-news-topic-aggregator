@@ -1,21 +1,20 @@
-# Use the official Rust image as a base
+# Use the official Rust image from the Docker Hub
 FROM rust:latest
 
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y libtorch-dev
-
-# Create a new directory for the project
+# Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy the project files
+# Copy the Cargo.toml and Cargo.lock files to the working directory
+COPY Cargo.toml Cargo.lock ./
+
+# Create a new empty project with the same dependencies as our project to cache dependencies
+RUN cargo build --release || true
+
+# Copy the source code into the container
 COPY . .
 
-# Set the target architecture to ARM64
-RUN rustup target add aarch64-unknown-linux-gnu
+# Build the application
+RUN cargo build --release
 
-# Build the project for ARM64
-RUN cargo build --target=aarch64-unknown-linux-gnu
-
-# Set the command to run the built binary
-CMD ["./target/aarch64-unknown-linux-gnu/debug/"]
+# Set the startup command to run the application
+CMD ["./target/release/rust-news-topic-aggregator"]
