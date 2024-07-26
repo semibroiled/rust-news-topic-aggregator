@@ -50,14 +50,15 @@ To install and set up this project locally, follow these steps:
 2. ***Build the Project*
 
     Ensure you have Rust installed. If not, install it from [here](https://www.rust-lang.org/tools/install).
-    `cargo build --release`
+    ```bash cargo build --release```
 
 ## Usage
 
 To run the application, execute the following command in your terminal:
 
 ```bash
-cargo run --release```
+cargo run --release
+```
 
 The application will start and you will be prompted to enter search criteria for fetching news articles.
 
