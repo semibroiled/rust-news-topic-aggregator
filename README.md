@@ -44,7 +44,7 @@ To install and set up this project locally, follow these steps:
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/yourusername/rust-news-processing.git
+   git clone https://github.com/semibroiled/rust-news-topic-aggregator.git
    cd rust-news-processing```
 
 2. ***Build the Project*
