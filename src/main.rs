@@ -4,8 +4,10 @@ mod search_news;
 // use process_text::generate_summary;
 use search_news::{call_api, ApiParams, Article, NewsAPIResponse};
 
+
 mod utils;
 use utils::get_env::get_keys;
+use utils::spinner::Spinner;
 
 use std::{error::Error, fs};
 
@@ -19,7 +21,7 @@ use csv::Writer;
 // File System Handling
 use std::fs::File;
 use std::path::Path;
-
+use crossterm::style::Color;
 use tokio;
 
 enum ApplicationStatus {
@@ -30,6 +32,13 @@ const NEWS_API_URL: &str = "https://newsapi.org/v2/everything";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+
+    let spinner = Spinner::new("hock", Some(100)) // Create a new spinner with 'dots' style
+    .with_message("Loading")            // Set a custom message
+    .with_color(Color::Cyan);           // Set a custom color
+
+spinner.start().await; // Start the spinner
+
     // Init Logging Backend
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
