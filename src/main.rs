@@ -1,8 +1,12 @@
 // Import local modules
 mod process_text;
 mod search_news;
+mod rubix;
 // use process_text::generate_summary;
 use search_news::{call_api, ApiParams, Article, NewsAPIResponse};
+
+// Use Custom Counter Data Type
+use rubix::Counter;
 
 
 mod utils;
@@ -155,11 +159,8 @@ spinner.start().await; // Start the spinner
 
         match summarize {
             "Y" => {
-                // let summary = generate_summary(&articles).await.with_context(|| {
-                //     format!("Failed to generate summary for articles: {:?}", &articles)
-                // });
-                // println!("*--Summary--*");
-                // println!("{:?}", summary);
+                let x = Counter::from(vec!["apple", "apple", "banana", "orange"]);
+                println!("{:?}", x);
                 continue;
             }
             "n" => {
